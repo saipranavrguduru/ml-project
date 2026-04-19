@@ -1,0 +1,30 @@
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Packaging/build artifacts
+build/
+dist/
+*.egg-info/
+
+# Jupyter artifacts
+.ipynb_checkpoints/
+
+# Local environment/config
+.env
+.python-version
+
+# macOS / editor
+.DS_Store
+.vscode/
+
+# Test and coverage
+.pytest_cache/
+.coverage
+htmlcov/
