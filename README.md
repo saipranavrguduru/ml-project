@@ -1,4 +1,11 @@
 # ML Project
+## Folder Structure
+.
+├── README.md
+├── requirements.txt
+├── src                 # pipeline files
+│   └── eval.py
+└── static              # data folder should be under here
 
 ## Python Environment Setup
 
