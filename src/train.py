@@ -1,6 +1,8 @@
 import argparse
+import csv
 import random
 from pathlib import Path
+from datetime import datetime
 
 import torch
 import torch.nn as nn
@@ -85,10 +87,34 @@ def save_checkpoint(path, model, args, val_metrics, epoch):
     )
 
 
+def write_metrics_row(path, row):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    file_exists = path.exists()
+    with path.open("a", newline="") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=list(row.keys()))
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(row)
+
+
+def build_run_paths(args):
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_name = f"resnet18_{timestamp}"
+    if args.pretrained:
+        run_name += "_pretrained"
+
+    run_dir = Path(args.run_dir) if args.run_dir else Path("runs") / run_name
+    output = Path(args.output) if args.output else run_dir / "best_resnet18_multilabel.pth"
+    log_csv = Path(args.log_csv) if args.log_csv else run_dir / "metrics.csv"
+    return run_dir, output, log_csv
+
+
 def main():
     parser = argparse.ArgumentParser(description="Train ResNet-18 for multilabel image classification")
     parser.add_argument("--data_dir", type=str, default="static/data")
-    parser.add_argument("--output", type=str, default="checkpoints/best_resnet18_multilabel.pth")
+    parser.add_argument("--run_dir", type=str, default=None, help="Directory for this run's checkpoint and metrics")
+    parser.add_argument("--output", type=str, default=None, help="Checkpoint path; defaults inside the run directory")
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--lr", type=float, default=1e-3)
@@ -99,10 +125,19 @@ def main():
     parser.add_argument("--num_workers", type=int, default=0)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--pretrained", action="store_true", help="Use cached torchvision ImageNet weights if available")
+    parser.add_argument("--log_csv", type=str, default=None, help="CSV path for per-epoch metrics; defaults inside the run directory")
     args = parser.parse_args()
+
+    run_dir, output_path, log_csv_path = build_run_paths(args)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    args.output = str(output_path)
+    args.log_csv = str(log_csv_path)
 
     torch.manual_seed(args.seed)
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"run_dir: {run_dir}")
+    print(f"checkpoint: {args.output}")
+    print(f"metrics: {args.log_csv}")
 
     train_base = MultiLabelImageFolder(args.data_dir, transform=build_train_transform(args.image_size))
     val_base = MultiLabelImageFolder(args.data_dir, transform=build_eval_transform(args.image_size))
@@ -140,10 +175,34 @@ def main():
             f"val_hamming={val_metrics['hamming_acc']:.4f}"
         )
 
+        saved_checkpoint = False
         if val_metrics["f1_micro"] > best_f1:
             best_f1 = val_metrics["f1_micro"]
             save_checkpoint(args.output, model, args, val_metrics, epoch)
+            saved_checkpoint = True
             print(f"saved checkpoint: {args.output}")
+
+        write_metrics_row(
+            args.log_csv,
+            {
+                "epoch": epoch,
+                "train_loss": train_metrics["loss"],
+                "train_exact_match": train_metrics["exact_match"],
+                "train_hamming_acc": train_metrics["hamming_acc"],
+                "train_f1_micro": train_metrics["f1_micro"],
+                "val_loss": val_metrics["loss"],
+                "val_exact_match": val_metrics["exact_match"],
+                "val_hamming_acc": val_metrics["hamming_acc"],
+                "val_f1_micro": val_metrics["f1_micro"],
+                "saved_checkpoint": saved_checkpoint,
+                "checkpoint_path": args.output,
+                "pretrained": args.pretrained,
+                "seed": args.seed,
+                "threshold": args.threshold,
+                "lr": args.lr,
+                "batch_size": args.batch_size,
+            },
+        )
 
 
 if __name__ == "__main__":
