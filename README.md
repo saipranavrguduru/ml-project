@@ -1,57 +1,121 @@
-# ML Project
-## Folder Structure
-```
-.
-├── README.md
-├── requirements.txt
-├── src                 # pipeline files
-│   └── eval.py
-└── static              # data folder should be under here
-```
+# Multilabel Image Classification Project
 
-## Python Environment Setup
+PyTorch pipeline for offline multilabel classification of 128x128 PNG images
+across 12 object classes.
 
-This project uses a local virtual environment at `.venv`.
+## Task
 
-### 1) Create and activate a virtual environment
+Each image can contain more than one label. Folder names encode the labels using
+underscores:
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
+```text
+pen_paper/img1.png
+phone_laptop_keychain/img2.png
 ```
 
-### 2) Upgrade pip
+The fixed label order is:
 
-```bash
-python -m pip install --upgrade pip
+```text
+pen, paper, book, clock, phone, laptop, chair, desk, bottle, keychain, backpack, calculator
 ```
 
-### 3) Install project dependencies
+## Method
 
-```bash
+- Model: `torchvision.models.resnet18`
+- Output head: final fully connected layer replaced with 12 logits
+- Transfer learning: when `--pretrained` is used, ResNet-18 starts from
+  ImageNet weights and all layers are fine-tuned on this dataset
+- From-scratch fallback: without `--pretrained`, the same architecture trains
+  from random initialization
+- Loss: `BCEWithLogitsLoss`
+- Inference: `sigmoid(logits)` followed by thresholding, default `0.5`
+- Image preprocessing: RGB conversion, resize to `128x128`, tensor conversion,
+  ImageNet mean/std normalization
+- Training augmentation: random horizontal flip and light color jitter
+- Validation: fixed random 80/20 train/validation split using seed `42`
+- Checkpoint selection: best validation micro-F1
+- Optimizer: AdamW over all model parameters
+
+## Files
+
+```text
+eval.py                  # evaluation script
+requirements.txt
+src/
+  dataset.py             # dataset loader and transforms
+  model.py               # ResNet-18 model factory
+  train.py               # training and checkpoint saving
+checkpoints/
+  best_resnet18_multilabel.pth
+```
+
+## Setup
+
+```powershell
+python -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-The dependency set includes core deep learning and foundational ML/data-science packages such as:
+## Train
 
-- torch
-- torchvision
-- pillow
-- numpy
-- pandas
-- scikit-learn
-- matplotlib
+Offline training from local/random initialization:
 
-## Run Evaluation
-
-From the project root:
-
-```bash
-python src/eval.py --model_path YOUR_SAVED_MODEL --test_data project_test_data --group_id YOUR_GROUP_ID --project_title "YOUR_PROJECT_TITLE"
+```powershell
+python -m src.train --data_dir static/data --epochs 10 --output checkpoints/best_resnet18_multilabel.pth
 ```
 
-If you do not activate the environment, use:
+Transfer-learning run, if torchvision ResNet-18 pretrained weights are already
+cached locally:
 
-```bash
-.venv/bin/python src/eval.py --model_path YOUR_SAVED_MODEL --test_data project_test_data --group_id YOUR_GROUP_ID --project_title "YOUR_PROJECT_TITLE"
+```powershell
+python -m src.train --data_dir static/data --epochs 10 --pretrained --output checkpoints/best_resnet18_multilabel.pth
 ```
+
+
+## Evaluate
+
+Required grader command:
+
+```powershell
+python eval.py --model_path checkpoints/best_resnet18_multilabel.pth --test_data project_test_data --group_id YOUR_GROUP_ID --project_title "YOUR_PROJECT_TITLE"
+```
+
+Local sanity check:
+
+```powershell
+python eval.py --model_path checkpoints/best_resnet18_multilabel.pth --test_data static/data --group_id 47 --project_title "YOUR_PROJECT_TITLE"
+```
+
+The `static/data` result is not a true held-out test result because the same data
+pool is used for training/validation.
+
+## Checkpoint
+
+The saved `.pth` file is a PyTorch checkpoint dictionary containing:
+
+```python
+{
+    "model_state_dict": model.state_dict(),
+    "label_order": LABEL_ORDER,
+    "image_size": 128,
+    "threshold": 0.5,
+    "epoch": epoch,
+    "val_metrics": val_metrics,
+    "architecture": "resnet18",
+    "pretrained": args.pretrained,
+}
+```
+
+`.pt` and `.pth` are both common PyTorch checkpoint extensions. This project uses
+`.pth`.
+
+
+## References
+
+- PyTorch transfer learning tutorial:
+  https://docs.pytorch.org/tutorials/beginner/transfer_learning_tutorial.html
+- Torchvision ResNet-18 weights and preprocessing:
+  https://docs.pytorch.org/vision/stable/models/generated/torchvision.models.resnet18.html
+- PyTorch saving/loading models:
+  https://docs.pytorch.org/tutorials/beginner/saving_loading_models.html

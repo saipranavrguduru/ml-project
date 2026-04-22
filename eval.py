@@ -79,6 +79,12 @@ class CustomDirectoryLayoutDataset(Dataset):
 
 ######### Functions #########
 
+def create_resnet18_multilabel(num_labels=12):
+    model = models.resnet18(weights=None)
+    model.fc = nn.Linear(model.fc.in_features, num_labels)
+    return model
+
+
 def load_test_dataset(data_dir, batch_size, num_workers, image_size, shuffle=False):
     """
     Loads the test dataset from a given directory. The directory must contain subfolders
@@ -124,12 +130,16 @@ def load_trained_model(model_path, num_labels, device, image_size):
         model: The model loaded on device. (If you are not using pytorch nn.Module directly, it is fine but make sure what it loads is compatible with the rest of the code.)
     """
 
-    model = CREATE_YOUR_MODEL_HERE(num_labels=num_labels) # Replace with your model creation function
+    model = create_resnet18_multilabel(num_labels=num_labels) # Replace with your model creation function
 
     ## Change/rewrite the rest of the function as needed, but make sure what it outputs works with the other functions (e.g., predict)
 
     # Load local state dictionary
-    state_dict = torch.load(model_path, map_location=device)
+    checkpoint = torch.load(model_path, map_location=device)
+    if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
+        state_dict = checkpoint["model_state_dict"]
+    else:
+        state_dict = checkpoint
     model.load_state_dict(state_dict)
 
     # Move the model to the specified device and set evaluation mode.
@@ -177,6 +187,7 @@ def evaluate_model(model, test_loader, device, threshold=0.5):
     """
     criterion = nn.BCEWithLogitsLoss()  # again this assumes the model output is logits
     running_loss = 0.0
+    total_samples = 0
 
     ## Change/rewrite the function as needed, but make sure it computes all these metrics correctly!
     ## Do *not* remove or change metrics. You can add new metrics if you want.)
