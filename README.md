@@ -47,6 +47,14 @@ src/
   train.py               # training and checkpoint saving
 checkpoints/
   best_resnet18_multilabel.pth
+runs/
+  resnet18_YYYYMMDD_HHMMSS/
+    metrics.csv
+    best_resnet18_multilabel.pth
+report/
+  report.tex
+  refs.bib
+  report.pdf
 ```
 
 ## Setup
@@ -62,15 +70,32 @@ pip install -r requirements.txt
 Offline training from local/random initialization:
 
 ```powershell
-python -m src.train --data_dir static/data --epochs 10 --output checkpoints/best_resnet18_multilabel.pth
+python -m src.train --data_dir static/data --epochs 10
 ```
 
 Transfer-learning run, if torchvision ResNet-18 pretrained weights are already
 cached locally:
 
 ```powershell
-python -m src.train --data_dir static/data --epochs 10 --pretrained --output checkpoints/best_resnet18_multilabel.pth
+python -m src.train --data_dir static/data --epochs 10 --pretrained
 ```
+
+Each training command creates a timestamped run directory by default:
+
+```text
+runs/resnet18_YYYYMMDD_HHMMSS/
+  metrics.csv
+  best_resnet18_multilabel.pth
+```
+
+To choose the run directory explicitly:
+
+```powershell
+python -m src.train --data_dir static/data --epochs 10 --run_dir runs/from_scratch_10ep
+```
+
+For final submission, use the best checkpoint from the selected run, or copy it
+to `checkpoints/best_resnet18_multilabel.pth`.
 
 
 ## Evaluate
@@ -109,6 +134,11 @@ The saved `.pth` file is a PyTorch checkpoint dictionary containing:
 
 `.pt` and `.pth` are both common PyTorch checkpoint extensions. This project uses
 `.pth`.
+
+## Report
+
+The provided LaTeX template files are in `report/`. The required report
+submission is the compiled PDF.
 
 
 ## References
