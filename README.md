@@ -88,15 +88,6 @@ runs/resnet18_YYYYMMDD_HHMMSS/
   best_resnet18_multilabel.pth
 ```
 
-To choose the run directory explicitly:
-
-```powershell
-python -m src.train --data_dir static/data --epochs 10 --run_dir runs/from_scratch_10ep
-```
-
-For final submission, use the best checkpoint from the selected run, or copy it
-to `checkpoints/best_resnet18_multilabel.pth`.
-
 
 ## Evaluate
 
