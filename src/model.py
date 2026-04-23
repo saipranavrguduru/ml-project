@@ -24,3 +24,25 @@ def create_multilabel_model(architecture="resnet18", num_labels=12, pretrained=F
         f"Unsupported architecture: {architecture}. "
         f"Supported values: {', '.join(SUPPORTED_ARCHITECTURES)}"
     )
+
+
+def freeze_backbone(model, architecture):
+    """Freeze all backbone parameters while leaving the classifier head trainable."""
+
+    for param in model.parameters():
+        param.requires_grad = False
+
+    if architecture == "resnet18":
+        for param in model.fc.parameters():
+            param.requires_grad = True
+        return model
+
+    if architecture == "densenet121":
+        for param in model.classifier.parameters():
+            param.requires_grad = True
+        return model
+
+    raise ValueError(
+        f"Unsupported architecture: {architecture}. "
+        f"Supported values: {', '.join(SUPPORTED_ARCHITECTURES)}"
+    )
