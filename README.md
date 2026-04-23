@@ -16,7 +16,7 @@ phone_laptop_keychain/img2.png
 The fixed label order is:
 
 ```text
-pen, paper, book, clock, phone, laptop, chair, desk, bottle, keychain, backpack, calculator
+backpack, book, bottle, calculator, chair, clock, desk, keychain, laptop, paper, pen, phone
 ```
 
 ## Method
@@ -131,7 +131,11 @@ The saved `.pth` file is a PyTorch checkpoint dictionary containing:
 The provided LaTeX template files are in `report/`. The required report
 submission is the compiled PDF.
 
-
+## Exploration
+- Freezing Bottom Layers - Will
+- Full Fine Tuning - Pranav
+- Training From Scratch - Addison
+- Report - Ametoje
 ## References
 
 - PyTorch transfer learning tutorial:
