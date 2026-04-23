@@ -136,6 +136,7 @@ submission is the compiled PDF.
 - Full Fine Tuning - Pranav
 - Training From Scratch - Addison
 - Report - Ametoje
+- Vision Transformer - (?)
 ## References
 
 - PyTorch transfer learning tutorial:
