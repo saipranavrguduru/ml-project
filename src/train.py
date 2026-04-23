@@ -1,5 +1,6 @@
 import argparse
 import csv
+import json
 import random
 from pathlib import Path
 from datetime import datetime
@@ -12,12 +13,62 @@ from src.dataset import LABEL_ORDER, MultiLabelImageFolder, build_eval_transform
 from src.model import create_resnet18_multilabel
 
 
-def split_indices(n_items, val_fraction, seed):
-    indices = list(range(n_items))
+def sample_key(dataset, idx):
+    img_path, _ = dataset.samples[idx]
+    return img_path.relative_to(dataset.root).as_posix()
+
+
+def create_split(dataset, train_fraction, val_fraction, test_fraction, seed):
+    total = train_fraction + val_fraction + test_fraction
+    if abs(total - 1.0) > 1e-6:
+        raise ValueError("train_fraction + val_fraction + test_fraction must equal 1.0")
+
+    keys = [sample_key(dataset, idx) for idx in range(len(dataset))]
     rng = random.Random(seed)
-    rng.shuffle(indices)
-    val_size = max(1, int(round(n_items * val_fraction)))
-    return indices[val_size:], indices[:val_size]
+    rng.shuffle(keys)
+
+    n_items = len(keys)
+    train_size = int(round(n_items * train_fraction))
+    val_size = int(round(n_items * val_fraction))
+
+    train_keys = keys[:train_size]
+    val_keys = keys[train_size:train_size + val_size]
+    test_keys = keys[train_size + val_size:]
+
+    if not train_keys or not val_keys or not test_keys:
+        raise ValueError("Split produced an empty partition; check dataset size/fractions.")
+
+    return {"train": train_keys, "val": val_keys, "test": test_keys}
+
+
+def load_or_create_split(path, dataset, args):
+    path = Path(path)
+    if path.exists():
+        with path.open("r") as split_file:
+            return json.load(split_file)
+
+    split = create_split(dataset, args.train_fraction, args.val_fraction, args.test_fraction, args.seed)
+    payload = {
+        "seed": args.seed,
+        "train_fraction": args.train_fraction,
+        "val_fraction": args.val_fraction,
+        "test_fraction": args.test_fraction,
+        "label_order": LABEL_ORDER,
+        "splits": split,
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w") as split_file:
+        json.dump(payload, split_file, indent=2)
+    return payload
+
+
+def indices_from_split(dataset, split_payload, split_name):
+    wanted = set(split_payload["splits"][split_name])
+    key_to_idx = {sample_key(dataset, idx): idx for idx in range(len(dataset))}
+    missing = sorted(wanted - set(key_to_idx))
+    if missing:
+        raise ValueError(f"{len(missing)} {split_name} split files are missing from dataset; first missing: {missing[0]}")
+    return [key_to_idx[key] for key in split_payload["splits"][split_name]]
 
 
 def multilabel_metrics(logits, labels, threshold=0.5):
@@ -82,6 +133,7 @@ def save_checkpoint(path, model, args, val_metrics, epoch):
             "val_metrics": val_metrics,
             "architecture": "resnet18",
             "pretrained": args.pretrained,
+            "split_json": args.split_json,
         },
         path,
     )
@@ -113,13 +165,16 @@ def build_run_paths(args):
 def main():
     parser = argparse.ArgumentParser(description="Train ResNet-18 for multilabel image classification")
     parser.add_argument("--data_dir", type=str, default="static/data")
+    parser.add_argument("--split_json", type=str, default="splits/split_seed42.json")
     parser.add_argument("--run_dir", type=str, default=None, help="Directory for this run's checkpoint and metrics")
     parser.add_argument("--output", type=str, default=None, help="Checkpoint path; defaults inside the run directory")
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--weight_decay", type=float, default=1e-4)
-    parser.add_argument("--val_fraction", type=float, default=0.2)
+    parser.add_argument("--train_fraction", type=float, default=0.70)
+    parser.add_argument("--val_fraction", type=float, default=0.15)
+    parser.add_argument("--test_fraction", type=float, default=0.15)
     parser.add_argument("--image_size", type=int, default=128)
     parser.add_argument("--threshold", type=float, default=0.5)
     parser.add_argument("--num_workers", type=int, default=0)
@@ -145,8 +200,14 @@ def main():
     print(f"metrics: {args.log_csv}")
 
     train_base = MultiLabelImageFolder(args.data_dir, transform=build_train_transform(args.image_size))
-    val_base = MultiLabelImageFolder(args.data_dir, transform=build_eval_transform(args.image_size))
-    train_idx, val_idx = split_indices(len(train_base), args.val_fraction, args.seed)
+    eval_base = MultiLabelImageFolder(args.data_dir, transform=build_eval_transform(args.image_size))
+    split_payload = load_or_create_split(args.split_json, eval_base, args)
+    train_idx = indices_from_split(train_base, split_payload, "train")
+    val_idx = indices_from_split(eval_base, split_payload, "val")
+    test_idx = indices_from_split(eval_base, split_payload, "test")
+
+    print(f"split_json: {args.split_json}")
+    print(f"samples: train={len(train_idx)} val={len(val_idx)} test={len(test_idx)}")
 
     train_loader = DataLoader(
         Subset(train_base, train_idx),
@@ -156,7 +217,14 @@ def main():
         pin_memory=(device == "cuda"),
     )
     val_loader = DataLoader(
-        Subset(val_base, val_idx),
+        Subset(eval_base, val_idx),
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=args.num_workers,
+        pin_memory=(device == "cuda"),
+    )
+    test_loader = DataLoader(
+        Subset(eval_base, test_idx),
         batch_size=args.batch_size,
         shuffle=False,
         num_workers=args.num_workers,
@@ -168,6 +236,8 @@ def main():
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
     best_f1 = -1.0
+    best_epoch = None
+    best_val_metrics = None
     for epoch in range(1, args.epochs + 1):
         train_metrics = run_epoch(model, train_loader, criterion, device, optimizer, args.threshold)
         val_metrics = run_epoch(model, val_loader, criterion, device, None, args.threshold)
@@ -183,6 +253,8 @@ def main():
         saved_checkpoint = False
         if val_metrics["f1_micro"] > best_f1:
             best_f1 = val_metrics["f1_micro"]
+            best_epoch = epoch
+            best_val_metrics = val_metrics
             save_checkpoint(args.output, model, args, val_metrics, epoch)
             saved_checkpoint = True
             print(f"saved checkpoint: {args.output}")
@@ -208,6 +280,38 @@ def main():
                 "batch_size": args.batch_size,
             },
         )
+
+    checkpoint = torch.load(args.output, map_location=device)
+    model.load_state_dict(checkpoint["model_state_dict"])
+    test_metrics = run_epoch(model, test_loader, criterion, device, None, args.threshold)
+    print(
+        f"best_epoch={best_epoch:03d} "
+        f"best_val_f1={best_f1:.4f} "
+        f"test_loss={test_metrics['loss']:.4f} "
+        f"test_f1={test_metrics['f1_micro']:.4f} "
+        f"test_hamming={test_metrics['hamming_acc']:.4f}"
+    )
+    write_metrics_row(
+        Path(run_dir) / "summary.csv",
+        {
+            "best_epoch": best_epoch,
+            "best_val_loss": best_val_metrics["loss"],
+            "best_val_exact_match": best_val_metrics["exact_match"],
+            "best_val_hamming_acc": best_val_metrics["hamming_acc"],
+            "best_val_f1_micro": best_val_metrics["f1_micro"],
+            "test_loss": test_metrics["loss"],
+            "test_exact_match": test_metrics["exact_match"],
+            "test_hamming_acc": test_metrics["hamming_acc"],
+            "test_f1_micro": test_metrics["f1_micro"],
+            "checkpoint_path": args.output,
+            "split_json": args.split_json,
+            "pretrained": args.pretrained,
+            "seed": args.seed,
+            "threshold": args.threshold,
+            "lr": args.lr,
+            "batch_size": args.batch_size,
+        },
+    )
 
 
 if __name__ == "__main__":

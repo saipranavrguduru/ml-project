@@ -32,7 +32,7 @@ backpack, book, bottle, calculator, chair, clock, desk, keychain, laptop, paper,
 - Image preprocessing: RGB conversion, resize to `128x128`, tensor conversion,
   ImageNet mean/std normalization
 - Training augmentation: random horizontal flip and light color jitter
-- Validation: fixed random 80/20 train/validation split using seed `42`
+- Split: fixed random 70/15/15 train/test/validation split using seed `42`
 - Checkpoint selection: best validation micro-F1
 - Optimizer: AdamW over all model parameters
 
@@ -47,9 +47,12 @@ src/
   train.py               # training and checkpoint saving
 checkpoints/
   best_resnet18_multilabel.pth
+splits/
+  split_seed42.json
 runs/
   resnet18_YYYYMMDD_HHMMSS/
     metrics.csv
+    summary.csv
     best_resnet18_multilabel.pth
 report/
   report.tex
@@ -85,7 +88,20 @@ Each training command creates a timestamped run directory by default:
 ```text
 runs/resnet18_YYYYMMDD_HHMMSS/
   metrics.csv
+  summary.csv
   best_resnet18_multilabel.pth
+```
+
+The first run also creates `splits/split_seed42.json`, which fixes the shared
+70/15/15 train/test/validation split for later experiments. Training uses
+the train partition, checkpoint selection uses validation micro-F1, and the best
+checkpoint is evaluated once on the local test partition for comparison across
+models.
+
+To choose the run directory explicitly:
+
+```powershell
+python -m src.train --data_dir static/data --epochs 10 --run_dir runs/from_scratch_10ep
 ```
 
 
@@ -103,8 +119,8 @@ Local sanity check:
 python eval.py --model_path checkpoints/best_resnet18_multilabel.pth --test_data static/data --group_id 47 --project_title "YOUR_PROJECT_TITLE"
 ```
 
-The `static/data` result is not a true held-out test result because the same data
-pool is used for training/validation.
+The local test metrics in each run's `summary.csv` are better for comparing
+experiments. The `eval.py` script is kept primarily for the grader command.
 
 ## Checkpoint
 
@@ -120,6 +136,7 @@ The saved `.pth` file is a PyTorch checkpoint dictionary containing:
     "val_metrics": val_metrics,
     "architecture": "resnet18",
     "pretrained": args.pretrained,
+    "split_json": args.split_json,
 }
 ```
 
@@ -133,8 +150,8 @@ submission is the compiled PDF.
 
 ## Exploration
 - Freezing Bottom Layers - Will
-- Full Fine Tuning - Pranav
-- Training From Scratch - Addison
+- ResNet Fine Tuning - Pranav
+- maybe dendritic ResNet/DenseNet fine tuning - Addison
 - EfficientNet fine tuning - Ametoje
 - Vision Transformer - (?)
 ## References
