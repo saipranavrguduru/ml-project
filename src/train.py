@@ -10,7 +10,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, Subset
 
 from src.dataset import LABEL_ORDER, MultiLabelImageFolder, build_eval_transform, build_train_transform
-from src.model import SUPPORTED_ARCHITECTURES, create_multilabel_model
+from src.model import SUPPORTED_ARCHITECTURES, create_multilabel_model, freeze_backbone
 
 
 def sample_key(dataset, idx):
@@ -158,6 +158,7 @@ def save_checkpoint(path, model, args, val_metrics, epoch):
             "val_metrics": val_metrics,
             "architecture": args.arch,
             "pretrained": args.pretrained,
+            "freeze_backbone": args.freeze_backbone,
             "split_json": args.split_json,
         },
         path,
@@ -206,6 +207,7 @@ def main():
     parser.add_argument("--num_workers", type=int, default=0)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--pretrained", action="store_true", help="Use cached torchvision ImageNet weights if available")
+    parser.add_argument("--freeze_backbone", action="store_true", help="Train only the classifier head of the selected backbone")
     parser.add_argument("--log_csv", type=str, default=None, help="CSV path for per-epoch metrics; defaults inside the run directory")
     args = parser.parse_args()
 
@@ -262,10 +264,13 @@ def main():
         num_labels=len(LABEL_ORDER),
         pretrained=args.pretrained,
     ).to(device)
+    if args.freeze_backbone:
+        freeze_backbone(model, args.arch)
     param_count = count_trainable_params(model)
     print(f"trainable_params: {param_count}")
     criterion = nn.BCEWithLogitsLoss()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    trainable_params = [param for param in model.parameters() if param.requires_grad]
+    optimizer = torch.optim.AdamW(trainable_params, lr=args.lr, weight_decay=args.weight_decay)
 
     best_f1 = -1.0
     best_epoch = None
@@ -315,6 +320,7 @@ def main():
                 "saved_checkpoint": saved_checkpoint,
                 "checkpoint_path": args.output,
                 "pretrained": args.pretrained,
+                "freeze_backbone": args.freeze_backbone,
                 "seed": args.seed,
                 "threshold": args.threshold,
                 "lr": args.lr,
@@ -357,6 +363,7 @@ def main():
             "checkpoint_path": args.output,
             "split_json": args.split_json,
             "pretrained": args.pretrained,
+            "freeze_backbone": args.freeze_backbone,
             "seed": args.seed,
             "threshold": args.threshold,
             "lr": args.lr,
