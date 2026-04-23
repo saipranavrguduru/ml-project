@@ -135,7 +135,7 @@ submission is the compiled PDF.
 - Freezing Bottom Layers - Will
 - Full Fine Tuning - Pranav
 - Training From Scratch - Addison
-- Report - Ametoje
+- EfficientNet fine tuning - Ametoje
 - Vision Transformer - (?)
 ## References
 
