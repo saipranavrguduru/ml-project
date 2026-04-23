@@ -81,9 +81,34 @@ def multilabel_metrics(logits, labels, threshold=0.5):
     tp = ((preds == 1) & (labels == 1)).sum().float()
     fp = ((preds == 1) & (labels == 0)).sum().float()
     fn = ((preds == 0) & (labels == 1)).sum().float()
+    precision_micro = (tp / (tp + fp + 1e-8)).item()
+    recall_micro = (tp / (tp + fn + 1e-8)).item()
     f1_micro = (2 * tp / (2 * tp + fp + fn + 1e-8)).item()
 
-    return {"exact_match": exact_match, "hamming_acc": hamming_acc, "f1_micro": f1_micro}
+    intersection = (preds * labels).sum(dim=1)
+    union = ((preds + labels) > 0).float().sum(dim=1)
+    iou = torch.where(union > 0, intersection / union, torch.ones_like(union))
+    mean_iou = iou.mean().item()
+
+    per_class_tp = ((preds == 1) & (labels == 1)).sum(dim=0).float()
+    per_class_fp = ((preds == 1) & (labels == 0)).sum(dim=0).float()
+    per_class_fn = ((preds == 0) & (labels == 1)).sum(dim=0).float()
+    per_class_f1 = 2 * per_class_tp / (2 * per_class_tp + per_class_fp + per_class_fn + 1e-8)
+    f1_macro = per_class_f1.mean().item()
+
+    return {
+        "exact_match": exact_match,
+        "hamming_acc": hamming_acc,
+        "mean_iou": mean_iou,
+        "precision_micro": precision_micro,
+        "recall_micro": recall_micro,
+        "f1_micro": f1_micro,
+        "f1_macro": f1_macro,
+    }
+
+
+def count_trainable_params(model):
+    return sum(param.numel() for param in model.parameters() if param.requires_grad)
 
 
 def run_epoch(model, loader, criterion, device, optimizer=None, threshold=0.5):
@@ -214,24 +239,26 @@ def main():
         batch_size=args.batch_size,
         shuffle=True,
         num_workers=args.num_workers,
-        pin_memory=(device == "cuda"),
+        pin_memory=(device.type == "cuda"),
     )
     val_loader = DataLoader(
         Subset(eval_base, val_idx),
         batch_size=args.batch_size,
         shuffle=False,
         num_workers=args.num_workers,
-        pin_memory=(device == "cuda"),
+        pin_memory=(device.type == "cuda"),
     )
     test_loader = DataLoader(
         Subset(eval_base, test_idx),
         batch_size=args.batch_size,
         shuffle=False,
         num_workers=args.num_workers,
-        pin_memory=(device == "cuda"),
+        pin_memory=(device.type == "cuda"),
     )
 
     model = create_resnet18_multilabel(num_labels=len(LABEL_ORDER), pretrained=args.pretrained).to(device)
+    param_count = count_trainable_params(model)
+    print(f"trainable_params: {param_count}")
     criterion = nn.BCEWithLogitsLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
@@ -247,6 +274,7 @@ def main():
             f"train_loss={train_metrics['loss']:.4f} "
             f"val_loss={val_metrics['loss']:.4f} "
             f"val_f1={val_metrics['f1_micro']:.4f} "
+            f"val_macro_f1={val_metrics['f1_macro']:.4f} "
             f"val_hamming={val_metrics['hamming_acc']:.4f}"
         )
 
@@ -266,11 +294,19 @@ def main():
                 "train_loss": train_metrics["loss"],
                 "train_exact_match": train_metrics["exact_match"],
                 "train_hamming_acc": train_metrics["hamming_acc"],
+                "train_mean_iou": train_metrics["mean_iou"],
+                "train_precision_micro": train_metrics["precision_micro"],
+                "train_recall_micro": train_metrics["recall_micro"],
                 "train_f1_micro": train_metrics["f1_micro"],
+                "train_f1_macro": train_metrics["f1_macro"],
                 "val_loss": val_metrics["loss"],
                 "val_exact_match": val_metrics["exact_match"],
                 "val_hamming_acc": val_metrics["hamming_acc"],
+                "val_mean_iou": val_metrics["mean_iou"],
+                "val_precision_micro": val_metrics["precision_micro"],
+                "val_recall_micro": val_metrics["recall_micro"],
                 "val_f1_micro": val_metrics["f1_micro"],
+                "val_f1_macro": val_metrics["f1_macro"],
                 "saved_checkpoint": saved_checkpoint,
                 "checkpoint_path": args.output,
                 "pretrained": args.pretrained,
@@ -278,6 +314,7 @@ def main():
                 "threshold": args.threshold,
                 "lr": args.lr,
                 "batch_size": args.batch_size,
+                "param_count": param_count,
             },
         )
 
@@ -289,6 +326,7 @@ def main():
         f"best_val_f1={best_f1:.4f} "
         f"test_loss={test_metrics['loss']:.4f} "
         f"test_f1={test_metrics['f1_micro']:.4f} "
+        f"test_macro_f1={test_metrics['f1_macro']:.4f} "
         f"test_hamming={test_metrics['hamming_acc']:.4f}"
     )
     write_metrics_row(
@@ -298,11 +336,19 @@ def main():
             "best_val_loss": best_val_metrics["loss"],
             "best_val_exact_match": best_val_metrics["exact_match"],
             "best_val_hamming_acc": best_val_metrics["hamming_acc"],
+            "best_val_mean_iou": best_val_metrics["mean_iou"],
+            "best_val_precision_micro": best_val_metrics["precision_micro"],
+            "best_val_recall_micro": best_val_metrics["recall_micro"],
             "best_val_f1_micro": best_val_metrics["f1_micro"],
+            "best_val_f1_macro": best_val_metrics["f1_macro"],
             "test_loss": test_metrics["loss"],
             "test_exact_match": test_metrics["exact_match"],
             "test_hamming_acc": test_metrics["hamming_acc"],
+            "test_mean_iou": test_metrics["mean_iou"],
+            "test_precision_micro": test_metrics["precision_micro"],
+            "test_recall_micro": test_metrics["recall_micro"],
             "test_f1_micro": test_metrics["f1_micro"],
+            "test_f1_macro": test_metrics["f1_macro"],
             "checkpoint_path": args.output,
             "split_json": args.split_json,
             "pretrained": args.pretrained,
@@ -310,6 +356,7 @@ def main():
             "threshold": args.threshold,
             "lr": args.lr,
             "batch_size": args.batch_size,
+            "param_count": param_count,
         },
     )
 

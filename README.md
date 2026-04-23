@@ -35,6 +35,8 @@ backpack, book, bottle, calculator, chair, clock, desk, keychain, laptop, paper,
 - Split: fixed random 70/15/15 train/test/validation split using seed `42`
 - Checkpoint selection: best validation micro-F1
 - Optimizer: AdamW over all model parameters
+- Logged metrics: loss, exact match, hamming accuracy, mean IoU, micro
+  precision/recall/F1, macro-F1, and trainable parameter count
 
 ## Files
 
