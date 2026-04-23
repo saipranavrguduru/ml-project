@@ -10,7 +10,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, Subset
 
 from src.dataset import LABEL_ORDER, MultiLabelImageFolder, build_eval_transform, build_train_transform
-from src.model import create_resnet18_multilabel
+from src.model import SUPPORTED_ARCHITECTURES, create_multilabel_model
 
 
 def sample_key(dataset, idx):
@@ -156,7 +156,7 @@ def save_checkpoint(path, model, args, val_metrics, epoch):
             "threshold": args.threshold,
             "epoch": epoch,
             "val_metrics": val_metrics,
-            "architecture": "resnet18",
+            "architecture": args.arch,
             "pretrained": args.pretrained,
             "split_json": args.split_json,
         },
@@ -177,22 +177,23 @@ def write_metrics_row(path, row):
 
 def build_run_paths(args):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_name = f"resnet18_{timestamp}"
+    run_name = f"{args.arch}_{timestamp}"
     if args.pretrained:
         run_name += "_pretrained"
 
     run_dir = Path(args.run_dir) if args.run_dir else Path("runs") / run_name
-    output = Path(args.output) if args.output else run_dir / "best_resnet18_multilabel.pth"
+    output = Path(args.output) if args.output else run_dir / f"best_{args.arch}_multilabel.pth"
     log_csv = Path(args.log_csv) if args.log_csv else run_dir / "metrics.csv"
     return run_dir, output, log_csv
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Train ResNet-18 for multilabel image classification")
+    parser = argparse.ArgumentParser(description="Train a torchvision backbone for multilabel image classification")
     parser.add_argument("--data_dir", type=str, default="static/data")
     parser.add_argument("--split_json", type=str, default="splits/split_seed42.json")
     parser.add_argument("--run_dir", type=str, default=None, help="Directory for this run's checkpoint and metrics")
     parser.add_argument("--output", type=str, default=None, help="Checkpoint path; defaults inside the run directory")
+    parser.add_argument("--arch", type=str, default="resnet18", choices=SUPPORTED_ARCHITECTURES)
     parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--lr", type=float, default=1e-3)
@@ -256,7 +257,11 @@ def main():
         pin_memory=(device.type == "cuda"),
     )
 
-    model = create_resnet18_multilabel(num_labels=len(LABEL_ORDER), pretrained=args.pretrained).to(device)
+    model = create_multilabel_model(
+        architecture=args.arch,
+        num_labels=len(LABEL_ORDER),
+        pretrained=args.pretrained,
+    ).to(device)
     param_count = count_trainable_params(model)
     print(f"trainable_params: {param_count}")
     criterion = nn.BCEWithLogitsLoss()
