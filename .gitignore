@@ -28,3 +28,7 @@ dist/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Logs
+checkpoints/
+runs
