@@ -273,7 +273,13 @@ if __name__ == "__main__":
     print('\n---------- [Eval] (Project: {}, Group: {}) ---------'.format(project_title, project_group_id))
 
     # Determine the device.
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = torch.device("cpu")
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif torch.backends.mps:
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
     print("Evaluation device:", device)
 
     # Load test data.
