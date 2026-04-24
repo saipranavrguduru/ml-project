@@ -181,7 +181,7 @@ submission is the compiled PDF.
 
 ## Exploration
 - ResNet Fine Tuning - Pranav
-- maybe dendritic ResNet/DenseNet fine tuning - Addison
+- DenseNet fine tuning - Addison
 - EfficientNet fine tuning - Ametoje
 - Vision Transformer - Will
 ## References
