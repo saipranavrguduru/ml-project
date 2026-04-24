@@ -209,6 +209,7 @@ def main():
     parser.add_argument("--pretrained", action="store_true", help="Use cached torchvision ImageNet weights if available")
     parser.add_argument("--freeze_backbone", action="store_true", help="Train only the classifier head of the selected backbone")
     parser.add_argument("--log_csv", type=str, default=None, help="CSV path for per-epoch metrics; defaults inside the run directory")
+    parser.add_argument("--early_stopping_patience", type=int, default=None, help="Stop after this many epochs without validation micro-F1 improvement")
     args = parser.parse_args()
 
     run_dir, output_path, log_csv_path = build_run_paths(args)
@@ -275,6 +276,7 @@ def main():
     best_f1 = -1.0
     best_epoch = None
     best_val_metrics = None
+    epochs_without_improvement = 0
     for epoch in range(1, args.epochs + 1):
         train_metrics = run_epoch(model, train_loader, criterion, device, optimizer, args.threshold)
         val_metrics = run_epoch(model, val_loader, criterion, device, None, args.threshold)
@@ -295,7 +297,10 @@ def main():
             best_val_metrics = val_metrics
             save_checkpoint(args.output, model, args, val_metrics, epoch)
             saved_checkpoint = True
+            epochs_without_improvement = 0
             print(f"saved checkpoint: {args.output}")
+        else:
+            epochs_without_improvement += 1
 
         write_metrics_row(
             args.log_csv,
@@ -328,6 +333,16 @@ def main():
                 "param_count": param_count,
             },
         )
+
+        if (
+            args.early_stopping_patience is not None
+            and epochs_without_improvement >= args.early_stopping_patience
+        ):
+            print(
+                f"early stopping at epoch {epoch:03d} "
+                f"after {epochs_without_improvement} epochs without validation micro-F1 improvement"
+            )
+            break
 
     checkpoint = torch.load(args.output, map_location=device)
     model.load_state_dict(checkpoint["model_state_dict"])
