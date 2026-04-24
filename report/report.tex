@@ -10,7 +10,7 @@
 
 
 \title{CAI 6108: Machine Learning Engineering\\
-	\large Project Report:  {\textcolor{purple}{Title of the Project}}} %% TODO: replace with the title of your project
+	\large Project Report:  {\textcolor{purple}{Group 41}}} %% TODO: replace with the title of your project
 	
 	
 	
@@ -18,8 +18,8 @@
 %% Comment out as needed and designate a point of contact
 %% Add / remove names as necessary
 \author{
-        Your Name \\{\em (Point of Contact)} \\
-        email1@ufl.edu\\
+        Addison Ferrell \\
+        aferrell2@ufl.edu\\
         \and
         Member 2's Name \\
         email2@ufl.edu\\
@@ -57,8 +57,28 @@
 %%
 \section{Introduction}
 
-% TODO:
-Write here. You can cite scholarly work like this~\cite{murphy2022probabilistic}. You can also include URLs in a footnote like this.\footnote{UCI repository: \url{https://archive.ics.uci.edu/}.}
+This course project is about building a complete machine learning pipeline for
+multilabel image classification. The task is to label a $128\times128$ PNG
+image with any subset of 12 object classes: pen, paper, book, clock, phone,
+laptop, chair, desk, bottle, keychain, backpack, and calculator. Because an
+image can contain multiple objects at once, this is a multilabel classification
+problem rather than a standard single-label classification task.
+
+Our goal is to make accurate predictions on unseen data while following the
+project constraints from class: the pipeline must run entirely offline, use
+course-relevant Python libraries, and apply reasonable machine learning best
+practices. We therefore built a PyTorch-based training and evaluation pipeline
+that supports multiple pretrained vision backbones and compares different
+fine-tuning strategies across them.
+
+The main idea behind our experiments is to test whether full fine-tuning of a
+pretrained model works better than training only the final classification head,
+and whether that trend is consistent across several architectures. The models
+we compare are ResNet-18, DenseNet-121, EfficientNet-B0, and
+ViT-B/32~\cite{he2016deep,huang2017densely,tan2019efficientnet,dosovitskiy2021image}.
+The notable part of the project is not just the final accuracy, but also the
+fact that the same offline pipeline, shared data split, and common metric set
+are used across all experiments so the results can be compared fairly.
 
 
 
@@ -71,8 +91,37 @@ Write here. You can cite scholarly work like this~\cite{murphy2022probabilistic}
 %%
 \section{Approach}
 
-% TODO:
-Write here. 
+Our pipeline is implemented entirely in Python using PyTorch and torchvision,
+which keeps the project offline and within the toolset used in the course. The
+dataset is organized into folders whose names encode one or more labels using
+underscores. For example, a folder such as
+\texttt{phone\_laptop\_keychain} indicates that every image in that folder
+contains those labels. The loader converts each image into a 12-dimensional
+multi-hot target vector using a fixed class order shared by training,
+checkpoint saving, and evaluation.
+
+For preprocessing, every image is converted to RGB, resized, transformed to a
+tensor, and normalized using ImageNet mean and standard deviation. During
+training we apply light data augmentation with random horizontal flips and
+small color jitter to improve robustness. Most architectures use
+$128\times128$ inputs, while ViT-B/32 uses $224\times224$ inputs because that
+matches its expected resolution.
+
+The model pipeline supports four backbones: \texttt{resnet18},
+\texttt{densenet121}, \texttt{efficientnet\_b0}, and \texttt{vitb32}. In each
+case, we replace the original classifier with a 12-output layer so the network
+produces one logit per class. Since the task is multilabel, we train with
+\texttt{BCEWithLogitsLoss}. At inference time, we apply a sigmoid to convert
+logits to probabilities and then threshold the outputs at 0.5 to decide which
+labels are predicted.
+
+We compare two training pipelines for each architecture. In full fine-tuning,
+all pretrained parameters are updated on our dataset. In head-only
+classification, the backbone is frozen and only the final classifier layer is
+trained. We use pretrained torchvision weights when available, optimize with
+AdamW, and save the best checkpoint according to validation micro-F1. This lets
+us study both architecture choice and transfer-learning strategy while keeping
+the rest of the pipeline fixed.
 
 
 
@@ -86,8 +135,34 @@ Write here.
 %%
 \section{Evaluation Methodology}
 
-% TODO:
-Write here. 
+We follow the class recommendation to use a train/validation/test split and to
+evaluate on unseen data. Our experiments use a fixed 70\%/15\%/15\% split with
+random seed 42, stored in \texttt{splits/split\_seed42.json}. Using the same
+split for all runs makes the comparisons fair across architectures, learning
+rates, and fine-tuning strategies. The train split is used for optimization,
+the validation split is used for model selection, and the test split is used
+only for final reporting.
+
+The pipeline records several evaluation metrics, including exact-match
+accuracy, hamming accuracy, mean intersection over union (IoU), micro
+precision, micro recall, micro-F1, and macro-F1. We use validation micro-F1 as
+the main model-selection metric because it balances precision and recall across
+all predicted labels and is appropriate for multilabel classification.
+Exact-match accuracy is stricter because every label for an image must be
+correct, while hamming accuracy gives a more label-wise view of performance.
+Macro-F1 is useful because it gives equal importance to each class.
+
+Our main baselines are the simpler versions of the same pipeline. For each
+architecture, head-only training acts as a baseline for full fine-tuning. We
+also compare different learning rates within the same architecture. This means
+the Results section should answer the questions emphasized in the project
+slides: what results we obtained, how those results compare to the baselines,
+and whether the pipeline appears to follow good machine learning practice.
+
+One limitation of our setup is that the split is created at the image level
+rather than the folder level. Because of that, related images from the same
+object combination may appear in different partitions, which can make the task
+slightly easier than a stricter split that holds out entire folders.
 
 
 
@@ -100,8 +175,28 @@ Write here.
 %%
 \section{Results}
 
-% TODO:
-Write here. 
+Insert the final experiment table or plot here. At minimum, this section should
+show how the final results compare to the baselines.
+
+A simple table structure is:
+
+\begin{itemize}
+    \item model architecture
+    \item full fine-tuning vs.\ head-only
+    \item learning rate
+    \item best validation micro-F1 / macro-F1
+    \item test micro-F1 / macro-F1 / hamming accuracy
+\end{itemize}
+
+Suggested discussion points:
+
+\begin{itemize}
+    \item Which architecture achieved the best test micro-F1?
+    \item Did full fine-tuning consistently outperform head-only training?
+    \item Did any architecture appear more sensitive to learning rate?
+    \item Were there tradeoffs between micro-F1 and macro-F1?
+    \item Which setup seems like the strongest overall offline pipeline?
+\end{itemize}
 
 
 
@@ -115,8 +210,18 @@ Write here.
 %%
 \section{Conclusions}
 
-% TODO:
-Write here. 
+This section should summarize the main takeaways after the final runs are
+aggregated. Good points to cover:
+
+\begin{itemize}
+    \item the best overall model and training setup
+    \item whether full fine-tuning was worth the extra compute
+    \item how architecture choice affected multilabel performance
+    \item limitations of the current dataset split and dataset size
+    \item one or two concrete next steps, such as stronger augmentation,
+    threshold tuning, or a folder-level split
+    \item whether the final pipeline appears reasonable for unseen offline evaluation
+\end{itemize}
 
 %%%%
 
