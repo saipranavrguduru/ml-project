@@ -21,7 +21,7 @@ pen, paper, book, clock, phone, laptop, chair, desk, bottle, keychain, backpack,
 
 ## Method
 
-- Model: selectable torchvision backbone, currently `resnet18`, `densenet121`, or `vitb32`
+- Model: selectable torchvision backbone, currently `resnet18`, `densenet121`, `vitb32`, or `efficientnet_b0`
 - Output head: final classifier layer replaced with 12 logits
 - Transfer learning: when `--pretrained` is used, the selected backbone starts
   from ImageNet weights and all layers are fine-tuned on this dataset
@@ -101,6 +101,18 @@ Example head-only DenseNet transfer-learning run:
 
 ```powershell
 python -m src.train --data_dir static/data --epochs 15 --arch densenet121 --pretrained --freeze_backbone
+```
+
+Example EfficientNet-B0 full fine-tune run:
+
+```powershell
+python -m src.train --data_dir static/data --epochs 15 --arch efficientnet_b0 --pretrained
+```
+
+Example head-only EfficientNet-B0 run:
+
+```powershell
+python -m src.train --data_dir static/data --epochs 15 --arch efficientnet_b0 --pretrained --freeze_backbone
 ```
 
 Each training command creates a timestamped run directory by default:
