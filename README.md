@@ -21,7 +21,7 @@ pen, paper, book, clock, phone, laptop, chair, desk, bottle, keychain, backpack,
 
 ## Method
 
-- Model: selectable torchvision backbone, currently `resnet18` or `densenet121`
+- Model: selectable torchvision backbone, currently `resnet18`, `densenet121`, or `vitb32`
 - Output head: final classifier layer replaced with 12 logits
 - Transfer learning: when `--pretrained` is used, the selected backbone starts
   from ImageNet weights and all layers are fine-tuned on this dataset
@@ -30,7 +30,7 @@ pen, paper, book, clock, phone, laptop, chair, desk, bottle, keychain, backpack,
 - Loss: `BCEWithLogitsLoss`
 - Inference: `sigmoid(logits)` followed by thresholding, default `0.5`
 - Image preprocessing: RGB conversion, resize to `128x128`, tensor conversion,
-  ImageNet mean/std normalization
+  ImageNet mean/std normalization. Imagse automatically resized to `224x224` for `vitb32`
 - Training augmentation: random horizontal flip and light color jitter
 - Split: fixed random 70/15/15 train/val/test split using seed `42`
 - Checkpoint selection: best validation micro-F1
@@ -180,11 +180,10 @@ The provided LaTeX template files are in `report/`. The required report
 submission is the compiled PDF.
 
 ## Exploration
-- Freezing Bottom Layers - Will
 - ResNet Fine Tuning - Pranav
 - maybe dendritic ResNet/DenseNet fine tuning - Addison
 - EfficientNet fine tuning - Ametoje
-- Vision Transformer - (?)
+- Vision Transformer - Will
 ## References
 
 - PyTorch transfer learning tutorial:
