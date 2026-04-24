@@ -3,7 +3,6 @@ Notes:
 
 - if `vitb32` runs out of memory, rerun that same command with `--batch_size 16`
 - if the best checkpoint is still from the last epoch, bump that run by another `10-20` epochs
-- efficient net will also need to be tested once its implemented
 
 ## Full Fine-Tuning
 
@@ -22,6 +21,9 @@ python -m src.train --data_dir static/data --split_json splits/split_seed42.json
 
 python -m src.train --data_dir static/data --split_json splits/split_seed42.json --arch vitb32 --pretrained --epochs 50 --lr 1e-4 --batch_size 32 --early_stopping_patience 5 --run_dir runs/vitb32_fullft_lr1e4
 python -m src.train --data_dir static/data --split_json splits/split_seed42.json --arch vitb32 --pretrained --epochs 50 --lr 3e-4 --batch_size 32 --early_stopping_patience 5 --run_dir runs/vitb32_fullft_lr3e4
+
+python -m src.train --data_dir static/data --split_json splits/split_seed42.json --arch efficientnet_b0 --pretrained --epochs 50 --lr 1e-4 --batch_size 32 --early_stopping_patience 5 --run_dir runs/efficientnet_b0_fullft_lr1e4
+python -m src.train --data_dir static/data --split_json splits/split_seed42.json --arch efficientnet_b0 --pretrained --epochs 50 --lr 3e-4 --batch_size 32 --early_stopping_patience 5 --run_dir runs/efficientnet_b0_fullft_lr3e4
 ```
 
 ## Head-Only
@@ -42,6 +44,9 @@ python -m src.train --data_dir static/data --split_json splits/split_seed42.json
 
 python -m src.train --data_dir static/data --split_json splits/split_seed42.json --arch vitb32 --pretrained --freeze_backbone --epochs 30 --lr 3e-4 --batch_size 32 --early_stopping_patience 5 --run_dir runs/vitb32_headonly_lr3e4
 python -m src.train --data_dir static/data --split_json splits/split_seed42.json --arch vitb32 --pretrained --freeze_backbone --epochs 30 --lr 1e-3 --batch_size 32 --early_stopping_patience 5 --run_dir runs/vitb32_headonly_lr1e3
+
+python -m src.train --data_dir static/data --split_json splits/split_seed42.json --arch efficientnet_b0 --pretrained --freeze_backbone --epochs 30 --lr 3e-4 --batch_size 32 --early_stopping_patience 5 --run_dir runs/efficientnet_b0_headonly_lr3e4
+python -m src.train --data_dir static/data --split_json splits/split_seed42.json --arch efficientnet_b0 --pretrained --freeze_backbone --epochs 30 --lr 1e-3 --batch_size 32 --early_stopping_patience 5 --run_dir runs/efficientnet_b0_headonly_lr1e3
 ```
 
 ## Compare Afterward
