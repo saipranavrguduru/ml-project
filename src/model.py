@@ -3,7 +3,7 @@ import torch.nn as nn
 from torchvision import models
 
 
-SUPPORTED_ARCHITECTURES = ("resnet18", "densenet121", "vitb32")
+SUPPORTED_ARCHITECTURES = ("resnet18", "densenet121", "vitb32", "efficientnet_b0")
 
 
 def create_multilabel_model(architecture="resnet18", num_labels=12, pretrained=False):
@@ -25,6 +25,12 @@ def create_multilabel_model(architecture="resnet18", num_labels=12, pretrained=F
         weights = models.ViT_B_32_Weights.DEFAULT if pretrained else None
         model = models.vit_b_32(weights=weights)
         model.heads.head = nn.Linear(model.heads.head.in_features, num_labels)
+        return model
+
+    if architecture == "efficientnet_b0":
+        weights = models.EfficientNet_B0_Weights.DEFAULT if pretrained else None
+        model = models.efficientnet_b0(weights=weights)
+        model.classifier[1] = nn.Linear(model.classifier[1].in_features, num_labels)
         return model
 
     raise ValueError(
@@ -51,6 +57,11 @@ def freeze_backbone(model, architecture):
 
     if architecture == "vitb32":
         for param in model.heads.head.parameters():
+            param.requires_grad = True
+        return model
+
+    if architecture == "efficientnet_b0":
+        for param in model.classifier.parameters():
             param.requires_grad = True
         return model
 
