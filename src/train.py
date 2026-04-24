@@ -152,7 +152,7 @@ def save_checkpoint(path, model, args, val_metrics, epoch):
         {
             "model_state_dict": model.state_dict(),
             "label_order": LABEL_ORDER,
-            "image_size": args.image_size,
+            "image_size": 224 if model == "vitb32" else args.image_size,
             "threshold": args.threshold,
             "epoch": epoch,
             "val_metrics": val_metrics,
@@ -228,8 +228,14 @@ def main():
     print(f"checkpoint: {args.output}")
     print(f"metrics: {args.log_csv}")
 
-    train_base = MultiLabelImageFolder(args.data_dir, transform=build_train_transform(args.image_size))
-    eval_base = MultiLabelImageFolder(args.data_dir, transform=build_eval_transform(args.image_size))
+    transform_image_size = args.image_size
+    if (args.arch == "vitb32"):
+        transform_image_size = 224
+        
+        
+
+    train_base = MultiLabelImageFolder(args.data_dir, transform=build_train_transform(transform_image_size))
+    eval_base = MultiLabelImageFolder(args.data_dir, transform=build_eval_transform(transform_image_size))
     split_payload = load_or_create_split(args.split_json, eval_base, args)
     train_idx = indices_from_split(train_base, split_payload, "train")
     val_idx = indices_from_split(eval_base, split_payload, "val")
