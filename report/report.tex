@@ -2,6 +2,7 @@
 
 \usepackage[left=0.7in,right=0.7in,top=0.35in,bottom=0.7in]{geometry}
 \usepackage{xcolor}
+\usepackage{graphicx}
 \usepackage{hyperref}
 
 \hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
@@ -24,10 +25,10 @@
         Sai Pranav Reddy Guduru \\
         saipranavrguduru@ufl.edu\\
         \and
-        Member 3's Name \\
-        email3@ufl.edu\\
+        Ametoje Virdi \\
+        ametojevirdi@ufl.edu\\
         \and
-        Member 4's Name \\
+        William Le \\
         email4@ufl.edu\\
         \and
         Member 5's Name \\
@@ -175,32 +176,73 @@ slightly easier than a stricter split that holds out entire folders.
 %%
 \section{Results}
 
-Insert the final experiment table or plot here. At minimum, this section should
-show how the final results compare to the baselines.
+Table~\ref{tab:results} reports all test-set metrics across all 16 configurations.
+The best value in each column is \textbf{bold}.
 
-A simple table structure is:
+\begin{table}[h]
+\centering
+\caption{Test-set results. Full FT = full fine-tuning; Head = head-only (backbone frozen).
+Prec.\ = micro precision, Rec.\ = micro recall.}
+\label{tab:results}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{llrrrrrrr}
+\hline
+\textbf{Model} & \textbf{Strategy} & \textbf{LR} & \textbf{Exact Match} & \textbf{Hamming} & \textbf{IoU} & \textbf{Prec.} & \textbf{Rec.} & \textbf{F1\textsubscript{micro}} \\
+\hline
+DenseNet-121    & Full FT & 1e-4 & \textbf{0.669} & \textbf{0.958} & \textbf{0.811} & \textbf{0.881} & \textbf{0.817} & \textbf{0.848} \\
+DenseNet-121    & Full FT & 3e-4 & 0.614 & 0.948 & 0.766 & 0.847 & 0.775 & 0.810 \\
+DenseNet-121    & Head    & 1e-3 & 0.362 & 0.913 & 0.584 & 0.754 & 0.586 & 0.660 \\
+DenseNet-121    & Head    & 3e-4 & 0.372 & 0.914 & 0.587 & 0.775 & 0.566 & 0.655 \\
+\hline
+EfficientNet-B0 & Full FT & 1e-4 & 0.606 & 0.949 & 0.775 & 0.850 & 0.783 & 0.815 \\
+EfficientNet-B0 & Full FT & 3e-4 & 0.597 & 0.946 & 0.763 & 0.841 & 0.770 & 0.804 \\
+EfficientNet-B0 & Head    & 1e-3 & 0.312 & 0.903 & 0.513 & 0.720 & 0.535 & 0.614 \\
+EfficientNet-B0 & Head    & 3e-4 & 0.261 & 0.892 & 0.461 & 0.674 & 0.484 & 0.563 \\
+\hline
+ResNet-18       & Full FT & 1e-4 & 0.543 & 0.942 & 0.723 & 0.849 & 0.724 & 0.782 \\
+ResNet-18       & Full FT & 3e-4 & 0.531 & 0.939 & 0.709 & 0.830 & 0.722 & 0.772 \\
+ResNet-18       & Head    & 1e-3 & 0.324 & 0.907 & 0.535 & 0.749 & 0.529 & 0.620 \\
+ResNet-18       & Head    & 3e-4 & 0.311 & 0.904 & 0.499 & 0.768 & 0.473 & 0.585 \\
+\hline
+ViT-B/32        & Full FT & 1e-4 & 0.610 & 0.946 & 0.769 & 0.821 & 0.796 & 0.808 \\
+ViT-B/32        & Full FT & 3e-4 & 0.195 & 0.842 & 0.320 & 0.437 & 0.354 & 0.392 \\
+ViT-B/32        & Head    & 1e-3 & 0.503 & 0.934 & 0.706 & 0.814 & 0.699 & 0.752 \\
+ViT-B/32        & Head    & 3e-4 & 0.485 & 0.934 & 0.696 & 0.829 & 0.681 & 0.747 \\
+\hline
+\end{tabular}}
+\end{table}
 
-\begin{itemize}
-    \item model architecture
-    \item full fine-tuning vs.\ head-only
-    \item learning rate
-    \item best validation micro-F1 / macro-F1
-    \item test micro-F1 / macro-F1 / hamming accuracy
-\end{itemize}
+\textbf{Best model.}
+DenseNet-121 with full fine-tuning at $\text{lr}=10^{-4}$ achieves the best score
+on every metric as it yielded a 66.9\% exact match, 95.8\% hamming accuracy, 81.1\% mean IoU,
+88.1\% micro precision, 81.7\% micro recall, and 84.8\% micro-F1.
 
-Suggested discussion points:
+\textbf{Full fine-tuning vs.\ head-only.}
+Full fine-tuning outperformed head-only training for all three CNN architectures, 
+as evidenced by the 18--25 point gap in micro-F1. Recall is primarily responsible for
+this gap since head-only models have reasonable precision but cannot adapt their features
+to the dataset, resulting in many missed true labels. Full fine-tuning allows the parameters
+to adjust to the dataset, which significantly improves recall and closes the F1 gap.
 
-\begin{itemize}
-    \item Which architecture achieved the best test micro-F1?
-    \item Did full fine-tuning consistently outperform head-only training?
-    \item Did any architecture appear more sensitive to learning rate?
-    \item Were there tradeoffs between micro-F1 and macro-F1?
-    \item Which setup seems like the strongest overall offline pipeline?
-\end{itemize}
+\textbf{ViT behaves differently.}
+ViT-B/32 head-only reaches 75.2\% micro-F1, which is well above the CNN head-only
+results. However, ViT's full fine-tuning micro-f1 at $\text{lr}=3\times10^{-4}$ falls to
+39.2\%, with both precision (0.437) and recall (0.354) significantly dropping.
+The model clearly experiences training instability at the higher learning rate.
+Lowering the learning rate to $10^{-4}$ increases the micro-f1 to 80.8\%, but ViT still does not
+beat DenseNet-121 even while having 87M parameters as compared with DenseNet's 7M.
 
+\textbf{Learning rate sensitivity.}
+For CNNs, the two learning rates typically differ by no more than 10 points across all metrics,
+with $10^{-4}$ consistently better. ViT is an outlier: the higher rate causes a
+40-point collapse in micro-F1 under full fine-tuning but has negligible effect
+in head-only mode, where only 9k parameters are updated.
 
-
-
+\textbf{Precision vs.\ recall tradeoff.}
+Across all configurations, precision is consistently higher than recall. Models
+tend to be conservative, predicting fewer labels than are present, rather than
+over-predicting. Full fine-tuning improves recall far more than precision,
+which is why it closes the F1 gap so significantly over head-only training.
 
 %% TODO: write about what you conclude. This is not meant to be a summary section but more of a takeaways/future work section.
 %% Must contain:
