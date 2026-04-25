@@ -231,15 +231,15 @@ beat DenseNet-121 even while having 87M parameters as compared with DenseNet's 7
 
 \textbf{Learning rate sensitivity.}
 For CNNs, the two learning rates typically differ by no more than 10 points across all metrics,
-with $10^{-4}$ consistently better. ViT is an outlier: the higher rate causes a
-40-point collapse in micro-F1 under full fine-tuning but has negligible effect
-in head-only mode, where only 9k parameters are updated.
+with $10^{-4}$ consistently better. ViT is an outlier since the higher rate causes a
+40-point decrease in micro-F1 when the learning rate is increased during full fine-tuning but has negligible effect
+in head-only mode, where fewer parameters are updated.
 
 \textbf{Precision vs.\ recall tradeoff.}
-Across all configurations, precision is consistently higher than recall. Models
-tend to be conservative, predicting fewer labels than are present, rather than
-over-predicting. Full fine-tuning improves recall far more than precision,
-which is why it closes the F1 gap so significantly over head-only training.
+Precision is consistently higher than recall for all models. The models
+tend to be conservative and predict less labels than are present rather than
+over-predicting. Fully fine-tuning the model improves recall more than precision,
+which is why it closes the F1 gap so much more as compared with head-only training.
 
 %% TODO: write about what you conclude. This is not meant to be a summary section but more of a takeaways/future work section.
 %% Must contain:
