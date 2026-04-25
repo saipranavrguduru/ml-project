@@ -85,6 +85,12 @@ def create_resnet18_multilabel(num_labels=12):
     return model
 
 
+def create_densenet121_multilabel(num_labels=12):
+    model = models.densenet121(weights=None)
+    model.classifier = nn.Linear(model.classifier.in_features, num_labels)
+    return model
+
+
 def load_test_dataset(data_dir, batch_size, num_workers, image_size, shuffle=False):
     """
     Loads the test dataset from a given directory. The directory must contain subfolders
@@ -130,7 +136,7 @@ def load_trained_model(model_path, num_labels, device, image_size):
         model: The model loaded on device. (If you are not using pytorch nn.Module directly, it is fine but make sure what it loads is compatible with the rest of the code.)
     """
 
-    model = create_resnet18_multilabel(num_labels=num_labels) # Replace with your model creation function
+    model = create_densenet121_multilabel(num_labels=num_labels)
 
     ## Change/rewrite the rest of the function as needed, but make sure what it outputs works with the other functions (e.g., predict)
 
